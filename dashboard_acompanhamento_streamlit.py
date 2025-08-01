@@ -89,33 +89,37 @@ def calculate_metrics(df):
 
     total_pedidos = len(df)
 
-    # Pedidos entregues (baseado na coluna 'Entregue' com datas)
+    # Verificar se a coluna "Entregue" existe
     if "Entregue" in df.columns:
+        # Converte para datetime e ignora erros
         df["Entregue"] = pd.to_datetime(df["Entregue"], errors="coerce", dayfirst=True)
         pedidos_entregues = df["Entregue"].notna().sum()
     else:
         pedidos_entregues = 0
 
-    # Quantidade Total (tratamento agressivo)
+    # --- INÍCIO DA CORREÇÃO ---
+    # Verificar se a coluna "QuantidadeProduto" existe
     if "QuantidadeProduto" in df.columns:
-        df["QuantidadeProduto"] = (
-            df["QuantidadeProduto"]
-            .astype(str)
-            .str.replace(",", ".", regex=False)
-            .str.extract(r"(\d+\.?\d*)")[0]
-        )
-        df["QuantidadeProduto"] = pd.to_numeric(df["QuantidadeProduto"], errors="coerce")
-        quantidade_total = int(df["QuantidadeProduto"].fillna(0).sum())
+        # 1. Converter a coluna para um tipo numérico, tratando erros.
+        #    Valores que não podem ser convertidos se tornarão NaN (Not a Number).
+        df['QuantidadeProduto'] = pd.to_numeric(df['QuantidadeProduto'], errors='coerce')
+        
+        # 2. Preencher os valores NaN com 0 para que a soma funcione corretamente.
+        df['QuantidadeProduto'] = df['QuantidadeProduto'].fillna(0)
+        
+        # 3. Agora, a soma funcionará como esperado.
+        quantidade_total = df["QuantidadeProduto"].sum()
     else:
         quantidade_total = 0
+    # --- FIM DA CORREÇÃO ---
 
     pedidos_pendentes = total_pedidos - pedidos_entregues
-    taxa_entrega = round((pedidos_entregues / total_pedidos) * 100, 1) if total_pedidos > 0 else 0
+    taxa_entrega = safe_percentage(pedidos_entregues, total_pedidos)
 
     return {
         "total_pedidos": total_pedidos,
         "pedidos_entregues": pedidos_entregues,
-        "quantidade_total": quantidade_total,
+        "quantidade_total": int(quantidade_total), # Converte para inteiro para exibição
         "pedidos_pendentes": pedidos_pendentes,
         "taxa_entrega": taxa_entrega
     }
