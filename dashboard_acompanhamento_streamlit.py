@@ -32,14 +32,13 @@ COLUNAS_DESEJADAS = [
 # Função para carregar dados com tratamento de erros e upload
 @st.cache_data
 def load_data(uploaded_file):
-    if "QuantidadeProduto" in df.columns:
+ if "QuantidadeProduto" in df.columns:
     st.subheader("📦 Debug - QuantidadeProduto")
     st.write(df["QuantidadeProduto"].head(10))
     st.write("Tipo:", df["QuantidadeProduto"].dtype)
     st.write("Soma (raw):", pd.to_numeric(df["QuantidadeProduto"], errors="coerce").sum())
 else:
     st.error("❌ Coluna 'QuantidadeProduto' não encontrada!")
-
     try:
         file_extension = uploaded_file.name.split(".")[-1].lower()
         if file_extension == "csv":
