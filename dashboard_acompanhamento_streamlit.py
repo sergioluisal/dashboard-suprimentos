@@ -35,13 +35,13 @@ COLUNAS_DESEJADAS = [
 df = load_data(uploaded_file)
 
 # ✅ Coloque o trecho de debug AQUI:
-if "QuantidadeProduto" in df.columns:
-    st.subheader("📦 Debug - QuantidadeProduto")
-    st.write(df["QuantidadeProduto"].head(10))
-    st.write("Tipo:", df["QuantidadeProduto"].dtype)
-    st.write("Soma (raw):", pd.to_numeric(df["QuantidadeProduto"], errors="coerce").sum())
-else:
-    st.error("❌ Coluna 'QuantidadeProduto' não encontrada!")
+    if "QuantidadeProduto" in df.columns:
+         st.subheader("📦 Debug - QuantidadeProduto")
+         st.write(df["QuantidadeProduto"].head(10))
+         st.write("Tipo:", df["QuantidadeProduto"].dtype)
+         st.write("Soma (raw):", pd.to_numeric(df["QuantidadeProduto"], errors="coerce").sum())
+    else:
+         st.error("❌ Coluna 'QuantidadeProduto' não encontrada!")
 
     try:
         file_extension = uploaded_file.name.split(".")[-1].lower()
