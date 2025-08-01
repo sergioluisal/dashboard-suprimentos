@@ -43,42 +43,27 @@ def load_data(uploaded_file):
             df = None
             for encoding in encodings:
                 try:
-                    # Adicionado dtype={'QuantidadeProduto': str} para garantir que leia como texto primeiro
-                    df = pd.read_csv(uploaded_file, encoding=encoding, sep=";", dtype={'QuantidadeProduto': str})
+                    df = pd.read_csv(uploaded_file, encoding=encoding, sep=";")
                     break
-                except Exception:
+                except:
                     uploaded_file.seek(0) # Reset file pointer for next attempt
                     continue
             if df is None:
                 raise Exception("Não foi possível decodificar o arquivo CSV com os encodings tentados.")
         elif file_extension in ["xls", "xlsx"]:
-            # Adicionado dtype={'QuantidadeProduto': str} para garantir que leia como texto primeiro
-            df = pd.read_excel(uploaded_file, dtype={'QuantidadeProduto': str})
+            df = pd.read_excel(uploaded_file)
         else:
             st.error("Formato de arquivo não suportado. Por favor, faça upload de um arquivo CSV ou Excel.")
             return pd.DataFrame()
 
-        # --- INÍCIO DA CORREÇÃO ---
-        # Tratamento da coluna QuantidadeProduto PRIMEIRO
-        if "QuantidadeProduto" in df.columns:
-            # 1. Converte para numérico, forçando erros a virarem NaN
-            df["QuantidadeProduto"] = pd.to_numeric(df["QuantidadeProduto"], errors="coerce")
-            # 2. Preenche os NaN (erros de conversão) com 0
-            df["QuantidadeProduto"] = df["QuantidadeProduto"].fillna(0)
-        # --- FIM DA CORREÇÃO ---
-
-        # Tratamento de outras colunas
+        # Tratamento de dados
         if "DataPedido" in df.columns:
             df["DataPedido"] = pd.to_datetime(df["DataPedido"], errors="coerce", dayfirst=True)
         if "PrevisaoEntrega" in df.columns:
             df["PrevisaoEntrega"] = pd.to_datetime(df["PrevisaoEntrega"], errors="coerce", dayfirst=True)
 
-        # Preencher valores nulos nas outras colunas (exceto QuantidadeProduto que já foi tratada)
-        for col in df.columns:
-            if col != 'QuantidadeProduto':
-                # Preenche com "Não informado" apenas se a coluna for do tipo 'object' (texto)
-                if df[col].dtype == 'object':
-                    df[col] = df[col].fillna("Não informado")
+        # Preencher valores nulos
+        df = df.fillna("Não informado")
 
         return df
     except Exception as e:
@@ -104,15 +89,17 @@ def calculate_metrics(df):
 
     total_pedidos = len(df)
 
+    # Verificar se a coluna "Entregue" existe
     if "Entregue" in df.columns:
+        # Converte para datetime e ignora erros
         df["Entregue"] = pd.to_datetime(df["Entregue"], errors="coerce", dayfirst=True)
         pedidos_entregues = df["Entregue"].notna().sum()
     else:
         pedidos_entregues = 0
 
-    # Agora a soma funciona diretamente, pois a coluna já foi tratada no load_data
+    # Verificar se a coluna "QuantidadeProduto" existe
     if "QuantidadeProduto" in df.columns:
-        quantidade_total = df["QuantidadeProduto"].sum()
+        quantidade_total = df["QuantidadeProduto"].fillna(0).sum()
     else:
         quantidade_total = 0
 
@@ -521,5 +508,6 @@ with st.expander("ℹ️ Informações sobre os dados"):
 
     st.write(f"**Total de registros:** {len(df)}")
     st.write(f"**Colunas com dados:** {len([col for col in available_columns if not df[col].isna().all()])}")
+
 
 
