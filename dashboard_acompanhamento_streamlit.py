@@ -32,7 +32,7 @@ COLUNAS_DESEJADAS = [
 # Função para carregar dados com tratamento de erros e upload
 @st.cache_data
 # ⛳️ Fora da função, após carregar o arquivo
-df = load_data(uploaded_file)
+    df = load_data(uploaded_file)
 
 # ✅ Coloque o trecho de debug AQUI:
     if "QuantidadeProduto" in df.columns:
