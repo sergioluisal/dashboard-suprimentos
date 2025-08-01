@@ -43,27 +43,42 @@ def load_data(uploaded_file):
             df = None
             for encoding in encodings:
                 try:
-                    df = pd.read_csv(uploaded_file, encoding=encoding, sep=";")
+                    # Adicionado dtype={'QuantidadeProduto': str} para garantir que leia como texto primeiro
+                    df = pd.read_csv(uploaded_file, encoding=encoding, sep=";", dtype={'QuantidadeProduto': str})
                     break
-                except:
+                except Exception:
                     uploaded_file.seek(0) # Reset file pointer for next attempt
                     continue
             if df is None:
                 raise Exception("Não foi possível decodificar o arquivo CSV com os encodings tentados.")
         elif file_extension in ["xls", "xlsx"]:
-            df = pd.read_excel(uploaded_file)
+            # Adicionado dtype={'QuantidadeProduto': str} para garantir que leia como texto primeiro
+            df = pd.read_excel(uploaded_file, dtype={'QuantidadeProduto': str})
         else:
             st.error("Formato de arquivo não suportado. Por favor, faça upload de um arquivo CSV ou Excel.")
             return pd.DataFrame()
 
-        # Tratamento de dados
+        # --- INÍCIO DA CORREÇÃO ---
+        # Tratamento da coluna QuantidadeProduto PRIMEIRO
+        if "QuantidadeProduto" in df.columns:
+            # 1. Converte para numérico, forçando erros a virarem NaN
+            df["QuantidadeProduto"] = pd.to_numeric(df["QuantidadeProduto"], errors="coerce")
+            # 2. Preenche os NaN (erros de conversão) com 0
+            df["QuantidadeProduto"] = df["QuantidadeProduto"].fillna(0)
+        # --- FIM DA CORREÇÃO ---
+
+        # Tratamento de outras colunas
         if "DataPedido" in df.columns:
             df["DataPedido"] = pd.to_datetime(df["DataPedido"], errors="coerce", dayfirst=True)
         if "PrevisaoEntrega" in df.columns:
             df["PrevisaoEntrega"] = pd.to_datetime(df["PrevisaoEntrega"], errors="coerce", dayfirst=True)
 
-        # Preencher valores nulos
-        df = df.fillna("Não informado")
+        # Preencher valores nulos nas outras colunas (exceto QuantidadeProduto que já foi tratada)
+        for col in df.columns:
+            if col != 'QuantidadeProduto':
+                # Preenche com "Não informado" apenas se a coluna for do tipo 'object' (texto)
+                if df[col].dtype == 'object':
+                    df[col] = df[col].fillna("Não informado")
 
         return df
     except Exception as e:
@@ -89,29 +104,17 @@ def calculate_metrics(df):
 
     total_pedidos = len(df)
 
-    # Verificar se a coluna "Entregue" existe
     if "Entregue" in df.columns:
-        # Converte para datetime e ignora erros
         df["Entregue"] = pd.to_datetime(df["Entregue"], errors="coerce", dayfirst=True)
         pedidos_entregues = df["Entregue"].notna().sum()
     else:
         pedidos_entregues = 0
 
-    # --- INÍCIO DA CORREÇÃO ---
-    # Verificar se a coluna "QuantidadeProduto" existe
+    # Agora a soma funciona diretamente, pois a coluna já foi tratada no load_data
     if "QuantidadeProduto" in df.columns:
-        # 1. Converter a coluna para um tipo numérico, tratando erros.
-        #    Valores que não podem ser convertidos se tornarão NaN (Not a Number).
-        df['QuantidadeProduto'] = pd.to_numeric(df['QuantidadeProduto'], errors='coerce')
-        
-        # 2. Preencher os valores NaN com 0 para que a soma funcione corretamente.
-        df['QuantidadeProduto'] = df['QuantidadeProduto'].fillna(0)
-        
-        # 3. Agora, a soma funcionará como esperado.
         quantidade_total = df["QuantidadeProduto"].sum()
     else:
         quantidade_total = 0
-    # --- FIM DA CORREÇÃO ---
 
     pedidos_pendentes = total_pedidos - pedidos_entregues
     taxa_entrega = safe_percentage(pedidos_entregues, total_pedidos)
@@ -119,7 +122,7 @@ def calculate_metrics(df):
     return {
         "total_pedidos": total_pedidos,
         "pedidos_entregues": pedidos_entregues,
-        "quantidade_total": int(quantidade_total), # Converte para inteiro para exibição
+        "quantidade_total": int(quantidade_total),
         "pedidos_pendentes": pedidos_pendentes,
         "taxa_entrega": taxa_entrega
     }
