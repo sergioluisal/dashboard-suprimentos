@@ -97,8 +97,14 @@ def calculate_metrics(df):
     else:
         pedidos_entregues = 0
 
-    # Verificar se a coluna "QuantidadeProduto" existe
+    # Verificar e converter a coluna "QuantidadeProduto"
     if "QuantidadeProduto" in df.columns:
+        df["QuantidadeProduto"] = (
+            df["QuantidadeProduto"]
+            .astype(str)
+            .str.replace(",", ".", regex=False)
+        )
+        df["QuantidadeProduto"] = pd.to_numeric(df["QuantidadeProduto"], errors="coerce")
         quantidade_total = df["QuantidadeProduto"].fillna(0).sum()
     else:
         quantidade_total = 0
