@@ -89,23 +89,23 @@ def calculate_metrics(df):
 
     total_pedidos = len(df)
 
-    # Verificar se a coluna "Entregue" existe
+    # Contagem de pedidos entregues com base na coluna 'Entregue'
     if "Entregue" in df.columns:
-        # Converte para datetime e ignora erros
         df["Entregue"] = pd.to_datetime(df["Entregue"], errors="coerce", dayfirst=True)
         pedidos_entregues = df["Entregue"].notna().sum()
     else:
         pedidos_entregues = 0
 
-    # Verificar e converter a coluna "QuantidadeProduto"
+    # Tratamento da coluna QuantidadeProduto
     if "QuantidadeProduto" in df.columns:
         df["QuantidadeProduto"] = (
             df["QuantidadeProduto"]
             .astype(str)
             .str.replace(",", ".", regex=False)
+            .str.extract(r"(\d+\.?\d*)")[0]  # extrai número mesmo se tiver "unidades"
         )
         df["QuantidadeProduto"] = pd.to_numeric(df["QuantidadeProduto"], errors="coerce")
-        quantidade_total = df["QuantidadeProduto"].fillna(0).sum()
+        quantidade_total = int(df["QuantidadeProduto"].fillna(0).sum())
     else:
         quantidade_total = 0
 
@@ -115,11 +115,10 @@ def calculate_metrics(df):
     return {
         "total_pedidos": total_pedidos,
         "pedidos_entregues": pedidos_entregues,
-        "quantidade_total": int(quantidade_total),
+        "quantidade_total": quantidade_total,
         "pedidos_pendentes": pedidos_pendentes,
         "taxa_entrega": taxa_entrega
     }
-
 # Função para criar gráfico de barras com tratamento de dados vazios
 def create_bar_chart(df, x_col, title, color_sequence=None):
     if df.empty or x_col not in df.columns:
