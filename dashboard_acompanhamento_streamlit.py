@@ -8,7 +8,7 @@ import io
 
 # Configuração da página
 st.set_page_config(
-    page_title="Acompanhamento de Suprimentos",
+    page_title="Dashboard de Acompanhamento",
     page_icon="📊",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -19,7 +19,6 @@ COLUNAS_DESEJADAS = [
     'NumeroPedido',
     'DataPedido',
     'ModeloProduto',
-    'TipoProduto',
     'QuantidadeProduto',
     'OrdemServico',
     'NumeroSerie',
@@ -91,9 +90,7 @@ def calculate_metrics(df):
 
     # Verificar se a coluna "Entregue" existe
     if "Entregue" in df.columns:
-        # Converte para datetime e ignora erros
-        df["Entregue"] = pd.to_datetime(df["Entregue"], errors="coerce", dayfirst=True)
-        pedidos_entregues = df["Entregue"].notna().sum()
+        pedidos_entregues = len(df[df["Entregue"].astype(str).str.lower().isin(["sim", "yes", "true", "1"])])
     else:
         pedidos_entregues = 0
 
@@ -303,14 +300,12 @@ def create_map(df, location_col, title):
     return fig
 
 # Interface principal
+st.title("📊 Dashboard de Acompanhamento")
 st.markdown("---")
 
+# Upload de arquivo
 uploaded_file = st.file_uploader("Faça upload do seu arquivo CSV ou Excel", type=["csv", "xls", "xlsx"])
 
-st.markdown("""
-    <h1 style='text-align: center; color: white; font-size: 48px;'>📊 Acompanhamento de Suprimentos</h1>
-    <hr style='border: 1px solid #444;'>
-""", unsafe_allow_html=True)
 df = load_data(uploaded_file)
 
 if df.empty:
@@ -324,11 +319,11 @@ st.sidebar.header("🔍 Filtros")
 available_columns = df.columns.tolist()
 
 # Filtro por Estado (se disponível)
-if "EstadoEntrega" in available_columns:
-    estados = ["Todos"] + sorted(df["EstadoEntrega"].unique().tolist())
+if "Uf" in available_columns:
+    estados = ["Todos"] + sorted(df["Uf"].unique().tolist())
     estado_selecionado = st.sidebar.selectbox("Estado:", estados)
     if estado_selecionado != "Todos":
-        df = df[df["EstadoEntrega"] == estado_selecionado]
+        df = df[df["Uf"] == estado_selecionado]
 
 # Filtro por Status (se disponível)
 if "StatusAtual" in available_columns:
@@ -345,24 +340,11 @@ if "TipoProduto" in available_columns:
         df = df[df["TipoProduto"] == tipo_selecionado]
 
 # Filtro por Entrega (se disponível)
-if "DataPedido" in available_columns:
-    # Garante que a coluna está no formato datetime
-    df["DataPedido"] = pd.to_datetime(df["DataPedido"], errors='coerce')
-
-    # Define o intervalo de datas com base nos dados disponíveis
-    data_min = df["DataPedido"].min().date()
-    data_max = df["DataPedido"].max().date()
-
-    # Widget de seleção de intervalo de datas
-    data_inicial, data_final = st.sidebar.date_input(
-        "Período de Pedido:",
-        value=(data_min, data_max),
-        min_value=data_min,
-        max_value=data_max
-    )
-
-    # Aplica o filtro ao DataFrame
-    df = df[(df["DataPedido"].dt.date >= data_inicial) & (df["DataPedido"].dt.date <= data_final)]
+if "Entregue" in available_columns:
+    entrega_options = ["Todos"] + sorted(df["Entregue"].astype(str).unique().tolist())
+    entrega_selecionada = st.sidebar.selectbox("Status de Entrega:", entrega_options)
+    if entrega_selecionada != "Todos":
+        df = df[df["Entregue"].astype(str) == entrega_selecionada]
 
 # Calcular métricas
 metrics = calculate_metrics(df)
@@ -388,15 +370,15 @@ st.markdown("---")
 col1, col2 = st.columns(2)
 
 with col1:
-    if "EstadoEntrega" in available_columns:  
-        fig_estados = create_bar_chart(df, "EstadoEntrega", "Top 10 Pedidos por Estados")
-        st.plotly_chart(fig_estados, use_container_width=True)        
+    if "Uf" in available_columns:
+        fig_estados = create_bar_chart(df, "Uf", "Top 10 Estados por Pedidos")
+        st.plotly_chart(fig_estados, use_container_width=True)
     else:
-        st.info("Coluna 'EstadoEntrega' não encontrada nos dados")
+        st.info("Coluna 'Uf' não encontrada nos dados")
 
 with col2:
     if "StatusAtual" in available_columns:
-        fig_status = create_pie_chart(df, "StatusAtual", "Status")
+        fig_status = create_pie_chart(df, "StatusAtual", "Distribuição por Status")
         st.plotly_chart(fig_status, use_container_width=True)
     else:
         st.info("Coluna 'StatusAtual' não encontrada nos dados")
@@ -413,7 +395,7 @@ with col1:
 
 with col2:
     if "TipoProduto" in available_columns:
-        fig_produtos = create_bar_chart(df, "TipoProduto", "Top 10 Produto por Tipo")
+        fig_produtos = create_bar_chart(df, "TipoProduto", "Top 10 Tipos de Produto")
         st.plotly_chart(fig_produtos, use_container_width=True)
     else:
         st.info("Coluna 'TipoProduto' não encontrada nos dados")
@@ -428,48 +410,22 @@ if "Uf" in available_columns:
 col1, col2 = st.columns(2)
 
 with col1:
-    if "Entregue" in df.columns:
-       df["TemData"] = df["Entregue"].notna() & (df["Entregue"] != "")
+    if "Entregue" in available_columns:
+        fig_entrega = create_pie_chart(df, "Entregue", "Status de Entrega")
+        st.plotly_chart(fig_entrega, use_container_width=True)
     else:
-       df["TemData"] = False
-
-    if "TemData" in df.columns:
-       contagem = df["TemData"].value_counts().rename({True: "Entregues", False: "Não Entregues"}).reset_index()
-       contagem.columns = ["Status", "Quantidade"]
-    
-       fig = px.pie(
-        contagem,
-        names="Status",
-        values="Quantidade",
-        title="Pedidos Entregues e Não Entregues",
-        hole=0.4  # Se quiser estilo "donut", senão remova
-       )
-       st.plotly_chart(fig, use_container_width=True)
-    else:
-       st.info("Coluna 'TemData' não encontrada.")
+        st.info("Coluna 'Entregue' não encontrada nos dados")
 
 with col2:
     if "ModeloProduto" in available_columns:
-        fig_modelos = create_bar_chart(df, "ModeloProduto", "Top 10 Produtos por Modelo")
+        fig_modelos = create_bar_chart(df, "ModeloProduto", "Top 10 Modelos de Produto")
         st.plotly_chart(fig_modelos, use_container_width=True)
     else:
         st.info("Coluna 'ModeloProduto' não encontrada nos dados")
 
 # Tabela de dados
-#st.markdown("### 📋 Dados Detalhados")
-#st.dataframe(df, use_container_width=True)
-
-
-# Verifica se todas as colunas estão presentes
-colunas_faltando = [col for col in COLUNAS_DESEJADAS if col not in df.columns]
-if colunas_faltando:
-    st.error(f"As seguintes colunas estão ausentes: {colunas_faltando}")
-else:
-    df_filtrado = df[COLUNAS_DESEJADAS]
-    
-    st.success("Colunas filtradas com sucesso!")
-    st.subheader("✅ Dados filtrados:")
-    st.dataframe(df_filtrado, use_container_width=True)
+st.markdown("### 📋 Dados Detalhados")
+st.dataframe(df, use_container_width=True)
 
 # Download dos dados filtrados
 if not df.empty:
@@ -508,6 +464,9 @@ with st.expander("ℹ️ Informações sobre os dados"):
 
     st.write(f"**Total de registros:** {len(df)}")
     st.write(f"**Colunas com dados:** {len([col for col in available_columns if not df[col].isna().all()])}")
+
+
+
 
 
 
