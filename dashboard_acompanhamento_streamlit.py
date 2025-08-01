@@ -303,12 +303,14 @@ def create_map(df, location_col, title):
     return fig
 
 # Interface principal
-st.title("📊 Acompanhamento de Suprimentos")
 st.markdown("---")
 
-# Upload de arquivo
 uploaded_file = st.file_uploader("Faça upload do seu arquivo CSV ou Excel", type=["csv", "xls", "xlsx"])
 
+st.markdown("""
+    <h1 style='text-align: center; color: white; font-size: 48px;'>📊 Acompanhamento de Suprimentos</h1>
+    <hr style='border: 1px solid #444;'>
+""", unsafe_allow_html=True)
 df = load_data(uploaded_file)
 
 if df.empty:
