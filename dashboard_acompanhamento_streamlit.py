@@ -32,8 +32,13 @@ COLUNAS_DESEJADAS = [
 # Função para carregar dados com tratamento de erros e upload
 @st.cache_data
 def load_data(uploaded_file):
-    if uploaded_file is None:
-        return pd.DataFrame()
+    if "QuantidadeProduto" in df.columns:
+    st.subheader("📦 Debug - QuantidadeProduto")
+    st.write(df["QuantidadeProduto"].head(10))
+    st.write("Tipo:", df["QuantidadeProduto"].dtype)
+    st.write("Soma (raw):", pd.to_numeric(df["QuantidadeProduto"], errors="coerce").sum())
+else:
+    st.error("❌ Coluna 'QuantidadeProduto' não encontrada!")
 
     try:
         file_extension = uploaded_file.name.split(".")[-1].lower()
@@ -89,20 +94,20 @@ def calculate_metrics(df):
 
     total_pedidos = len(df)
 
-    # Contagem de pedidos entregues com base na coluna 'Entregue'
+    # Pedidos entregues (baseado na coluna 'Entregue' com datas)
     if "Entregue" in df.columns:
         df["Entregue"] = pd.to_datetime(df["Entregue"], errors="coerce", dayfirst=True)
         pedidos_entregues = df["Entregue"].notna().sum()
     else:
         pedidos_entregues = 0
 
-    # Tratamento da coluna QuantidadeProduto
+    # Quantidade Total (tratamento agressivo)
     if "QuantidadeProduto" in df.columns:
         df["QuantidadeProduto"] = (
             df["QuantidadeProduto"]
             .astype(str)
             .str.replace(",", ".", regex=False)
-            .str.extract(r"(\d+\.?\d*)")[0]  # extrai número mesmo se tiver "unidades"
+            .str.extract(r"(\d+\.?\d*)")[0]
         )
         df["QuantidadeProduto"] = pd.to_numeric(df["QuantidadeProduto"], errors="coerce")
         quantidade_total = int(df["QuantidadeProduto"].fillna(0).sum())
@@ -110,7 +115,7 @@ def calculate_metrics(df):
         quantidade_total = 0
 
     pedidos_pendentes = total_pedidos - pedidos_entregues
-    taxa_entrega = safe_percentage(pedidos_entregues, total_pedidos)
+    taxa_entrega = round((pedidos_entregues / total_pedidos) * 100, 1) if total_pedidos > 0 else 0
 
     return {
         "total_pedidos": total_pedidos,
@@ -119,6 +124,7 @@ def calculate_metrics(df):
         "pedidos_pendentes": pedidos_pendentes,
         "taxa_entrega": taxa_entrega
     }
+
 # Função para criar gráfico de barras com tratamento de dados vazios
 def create_bar_chart(df, x_col, title, color_sequence=None):
     if df.empty or x_col not in df.columns:
